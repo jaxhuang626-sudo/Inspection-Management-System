@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工研院服務台巡檢管理系統</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#333}
+/* Login */
+.login-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;justify-content:center;align-items:center;z-index:9999}
+.login-box{background:#fff;padding:40px;border-radius:12px;box-shadow:0 2px 30px rgba(0,0,0,.2);width:380px;max-width:90vw}
+.login-box h1{font-size:22px;color:#1a1a2e;margin-bottom:4px;text-align:center}
+.login-box .sub{color:#666;font-size:14px;margin-bottom:24px;text-align:center}
+.login-box .error{background:#fce4e4;color:#c0392b;padding:10px;border-radius:6px;font-size:13px;margin-bottom:16px;display:none}
+/* Header */
+.header{background:#1a1a2e;color:#fff;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.header h1{font-size:17px}
+.header .user-info{display:flex;align-items:center;gap:12px;font-size:13px}
+.header .user-info a{color:#a8b2d1;text-decoration:none;cursor:pointer}
+.header .user-info a:hover{color:#fff}
+.header .sync-status{font-size:12px;color:#8f9bb3}
+/* Container */
+.container{max-width:1400px;margin:0 auto;padding:16px}
+/* Toolbar */
+.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px}
+.toolbar h2{font-size:19px;color:#1a1a2e}
+/* Filter */
+.filter-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.filter-bar input,.filter-bar select{padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-size:13px}
+.filter-bar select{min-width:100px}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:4px;padding:7px 14px;border-radius:6px;text-decoration:none;font-size:13px;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
+.btn-primary{background:#1a73e8;color:#fff}
+.btn-primary:hover{background:#1557b0}
+.btn-success{background:#27ae60;color:#fff}
+.btn-success:hover{background:#219a52}
+.btn-danger{background:#e74c3c;color:#fff}
+.btn-danger:hover{background:#c0392b}
+.btn-warning{background:#f39c12;color:#fff}
+.btn-warning:hover{background:#d68910}
+.btn-outline{background:transparent;border:1px solid #ccc;color:#555}
+.btn-outline:hover{background:#f5f5f5}
+.btn-sm{padding:4px 9px;font-size:12px}
+/* Table */
+.table-wrap{background:#fff;border-radius:10px;box-shadow:0 1px 8px rgba(0,0,0,.08);overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:1100px}
+th{background:#f8f9fa;padding:9px 6px;text-align:center;font-weight:600;color:#444;border-bottom:2px solid #e0e0e0;white-space:nowrap}
+td{padding:8px 6px;text-align:center;border-bottom:1px solid #eee;vertical-align:middle}
+tr:hover td{background:#f5f8ff}
+.total{font-weight:700;color:#1a73e8;font-size:15px}
+.notes-cell{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:help}
+.action-cell{white-space:nowrap}
+.action-cell form{display:inline}
+.empty{text-align:center;padding:36px;color:#999;font-size:15px}
+/* Legend */
+.scoring-legend{background:#fff;border-radius:10px;padding:12px 16px;margin-bottom:12px;box-shadow:0 1px 8px rgba(0,0,0,.08);font-size:12px;color:#555;line-height:1.8}
+.scoring-legend .item{display:inline-block;margin-right:16px}
+.scoring-legend strong{color:#333}
+/* Modal */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);display:none;justify-content:center;align-items:flex-start;padding:40px 16px;z-index:9998;overflow-y:auto}
+.modal-overlay.active{display:flex}
+.modal{background:#fff;border-radius:12px;box-shadow:0 4px 30px rgba(0,0,0,.2);width:800px;max-width:100%;padding:28px;margin:auto}
+.modal h2{font-size:18px;color:#1a1a2e;margin-bottom:18px}
+.modal .close{float:right;font-size:22px;cursor:pointer;color:#999;line-height:1}
+.modal .close:hover{color:#333}
+.form-row{display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+.form-group{flex:1;min-width:140px}
+.form-group label{display:block;font-size:12px;color:#555;margin-bottom:3px;font-weight:600}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:7px 9px;border:1px solid #ddd;border-radius:5px;font-size:13px;outline:none}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:#4a90d9}
+.form-group textarea{resize:vertical;min-height:50px}
+.score-group{display:flex;gap:10px;flex-wrap:wrap;background:#f8f9fa;padding:14px;border-radius:8px;margin-bottom:14px}
+.score-item{text-align:center;flex:1;min-width:70px}
+.score-item label{display:block;font-size:11px;color:#555;margin-bottom:3px}
+.score-item input{width:60px;padding:7px;text-align:center;border:1px solid #ddd;border-radius:5px;font-size:15px;font-weight:700}
+.score-item .max{font-size:10px;color:#999;margin-top:2px}
+.total-display{text-align:center;padding:10px;background:#1a73e8;color:#fff;border-radius:8px;font-size:18px;font-weight:700;margin-bottom:14px}
+.btn-row{display:flex;gap:10px;margin-top:16px}
+/* Modal header */
+.modal-header{border-bottom:1px solid #e8e8e8;padding-bottom:14px;margin-bottom:18px}
+.modal-header h2{font-size:19px;color:#1a1a2e;margin:0}
+.modal-header .close{float:right;font-size:24px;cursor:pointer;color:#aaa;line-height:1;margin-top:-2px}
+.modal-header .close:hover{color:#333}
+/* Add section card */
+.add-section{display:flex;gap:16px;align-items:flex-start;background:linear-gradient(135deg,#f0f4ff,#e8f0fe);padding:18px 20px;border-radius:10px;margin-bottom:20px;border:1px solid #d0dfff}
+.add-section-icon{width:38px;height:38px;background:#1a73e8;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;flex-shrink:0;margin-top:2px}
+/* List section */
+.list-section{background:#fff;border:1px solid #e8e8e8;border-radius:10px}
+.list-section-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#fafbfc;border-bottom:1px solid #e8e8e8}
+.list-section-title{font-weight:600;font-size:14px;color:#333}
+.list-section-count{font-size:12px;color:#888;background:#eef0f4;padding:2px 10px;border-radius:10px}
+/* Manage table */
+/* Item card list (for stations/users) */
+.item-list{list-style:none;padding:0;margin:0}
+.item-row{display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid #f0f0f0;gap:10px}
+.item-row:last-child{border-bottom:none}
+.item-row:hover{background:#f5f8ff}
+.item-row .info{flex:1;min-width:0}
+.item-row .info .title{font-weight:600;font-size:14px;color:#333}
+.item-row .info .sub{font-size:12px;color:#888;margin-top:1px}
+.item-row .actions{flex-shrink:0;display:flex;gap:6px}
+.role-badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
+.role-badge-admin{background:#e8eaf6;color:#283593}
+.role-badge-user{background:#f3e5f5;color:#6a1b9a}
+.nowrap{white-space:nowrap}
+/* Scoring criteria */
+.criteria-list{padding:0}
+.criteria-item{padding:12px 0;border-bottom:1px solid #eee}
+.criteria-title{font-size:15px;font-weight:600;color:#1a1a2e;margin-bottom:4px}
+.criteria-num{display:inline-block;background:#1a73e8;color:#fff;width:24px;height:24px;border-radius:50%;text-align:center;line-height:24px;font-size:12px;margin-right:8px;flex-shrink:0}
+.criteria-score{color:#1a73e8;font-size:13px}
+.criteria-desc{font-size:13px;color:#555;line-height:1.7;padding-left:32px}
+/* Loading */
+.loading{display:none;text-align:center;padding:20px}
+.loading.active{display:block}
+.spinner{display:inline-block;width:32px;height:32px;border:3px solid #ddd;border-top-color:#1a73e8;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* Toast */
+.toast{position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:8px;color:#fff;font-size:14px;z-index:99999;transform:translateX(120%);transition:transform .3s;max-width:360px}
+.toast.show{transform:translateX(0)}
+.toast.success{background:#27ae60}
+.toast.error{background:#e74c3c}
+.toast.info{background:#1a73e8}
+/* Responsive */
+@media(max-width:768px){
+.container{padding:8px}
+.toolbar{flex-direction:column;align-items:stretch}
+.filter-bar{flex-direction:column}
+.modal{padding:18px}
+.form-row{flex-direction:column}
+.form-group{min-width:auto}
+}
+</style>
+</head>
+<body>
+
+<div class="login-overlay" id="loginOverlay">
+<div class="login-box">
+<h1>巡檢管理系統</h1>
+<div class="sub">工研院服務台人員巡檢表</div>
+<div class="error" id="loginError"></div>
+<div class="form-group" style="margin-bottom:12px">
+<label for="loginUser">帳號</label>
+<input type="text" id="loginUser" autofocus>
+</div>
+<div class="form-group" style="margin-bottom:18px">
+<label for="loginPass">密碼</label>
+<input type="password" id="loginPass">
+</div>
+<button class="btn btn-primary" style="width:100%;padding:11px;font-size:15px" onclick="doLogin()">登入</button>
+<div style="margin-top:12px;font-size:12px;color:#999;text-align:center">首次使用：admin / admin123</div>
+</div>
+</div>
+
+<div class="header">
+<h1>工研院服務台人員巡檢管理系統</h1>
+<div>
+<span class="sync-status" id="syncStatus"></span>
+<span class="user-info" id="userInfo" style="display:none">
+<span id="displayName"></span>
+<a onclick="showChangePwd()">修改密碼</a>
+<a id="menuUsers" onclick="showUsers()" style="display:none">帳號管理</a>
+<a id="menuStations" onclick="showStations()" style="display:none">人員管理</a>
+<a id="menuSettings" onclick="showSettings()" style="display:none">系統設定</a>
+<a onclick="doLogout()" style="color:#e74c3c">登出</a>
+</span>
+</div>
+</div>
+
+<div class="container" id="mainContent" style="display:none">
+
+<div class="toolbar">
+<h2>巡檢紀錄</h2>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<button class="btn btn-primary" onclick="showAddForm()">+ 新增巡檢</button>
+<button class="btn btn-success btn-sm" onclick="exportCSV()">匯出 CSV</button>
+<button class="btn btn-outline btn-sm" onclick="syncFromGist()">從 GitHub 同步</button>
+<button class="btn btn-outline btn-sm" onclick="syncToGist()">儲存至 GitHub</button>
+</div>
+</div>
+
+<div class="filter-bar">
+<input type="text" id="filterBranch" placeholder="搜尋館別..." oninput="filterTable()">
+<input type="date" id="filterDate" onchange="filterTable()">
+<select id="filterName" onchange="filterTable()"><option value="">全部人員</option></select>
+<select id="filterTotal" onchange="filterTable()">
+<option value="">全部總分</option>
+<option value="100">100 分</option>
+<option value="90">90 分以上</option>
+<option value="80">80 分以上</option>
+<option value="60">60 分以下</option>
+</select>
+<button class="btn btn-outline btn-sm" onclick="clearFilters()">清除篩選</button>
+</div>
+
+<div class="scoring-legend" id="scoringLegend"></div>
+<div style="text-align:right;margin-bottom:10px">
+<button class="btn btn-outline btn-sm" onclick="showScoringCriteria()">📋 評分標準說明</button>
+</div>
+
+<div class="loading" id="loadingIndicator"><div class="spinner"></div><div style="margin-top:8px;color:#999">載入中...</div></div>
+
+<div class="table-wrap">
+<table id="inspectionTable">
+<thead id="tableHead"></thead>
+<tbody id="tableBody"></tbody>
+</table>
+</div>
+</div>
+
+<!-- Modal: Edit/Add -->
+<div class="modal-overlay" id="formModal">
+<div class="modal">
+<span class="close" onclick="closeModal('formModal')">&times;</span>
+<h2 id="formTitle">新增巡檢紀錄</h2>
+<form id="inspectionForm" onsubmit="return false">
+<input type="hidden" id="editId">
+<div class="form-row">
+<div class="form-group">
+<label for="fDate">巡檢日期</label>
+<input type="date" id="fDate" required>
+</div>
+<div class="form-group">
+<label for="fInspector">巡檢人員</label>
+<input type="text" id="fInspector" required>
+</div>
+</div>
+<div class="form-row">
+<div class="form-group">
+<label for="fBranch">館別</label>
+<select id="fBranch" required onchange="updateFormName()"><option value="">-- 請選擇館別 --</option></select>
+</div>
+<div class="form-group">
+<label for="fName">人員姓名</label>
+<select id="fName" required><option value="">-- 請選擇人員 --</option></select>
+</div>
+</div>
+<div class="score-group" id="scoreGroup"></div>
+<div class="total-display" id="formTotal">總分：0 / 100</div>
+<div class="form-row">
+<div class="form-group" style="flex:2">
+<label for="fNotes">異常/待改善事項/特殊表現</label>
+<textarea id="fNotes" rows="3"></textarea>
+</div>
+<div class="form-group" style="flex:2">
+<label for="fFollowUp">追蹤結果</label>
+<textarea id="fFollowUp" rows="3"></textarea>
+</div>
+</div>
+<div class="btn-row">
+<button class="btn btn-primary" onclick="saveInspection()">儲存</button>
+<button class="btn btn-outline" onclick="closeModal('formModal')">取消</button>
+</div>
+</form>
+</div>
+</div>
+
+<!-- Modal: Users -->
+<div class="modal-overlay" id="usersModal">
+<div class="modal" style="width:600px">
+<div class="modal-header">
+<span class="close" onclick="closeModal('usersModal')">&times;</span>
+<h2>帳號管理</h2>
+</div>
+<div class="add-section">
+<div class="add-section-icon">+</div>
+<div style="flex:1">
+<div style="font-weight:600;font-size:14px;margin-bottom:10px">新增帳號</div>
+<div class="form-row">
+<div class="form-group"><label>帳號</label><input type="text" id="newUser" placeholder="請輸入帳號"></div>
+<div class="form-group"><label>密碼</label><input type="password" id="newPass" placeholder="請輸入密碼"></div>
+<div class="form-group"><label>顯示名稱</label><input type="text" id="newDisplay" placeholder="例如：王大明"></div>
+<div class="form-group"><label>角色</label><select id="newRole"><option value="user">一般使用者</option><option value="admin">管理員</option></select></div>
+</div>
+<button class="btn btn-primary" onclick="addUser()" style="margin-top:4px">新增帳號</button>
+</div>
+</div>
+<div class="list-section">
+<div class="list-section-header">
+<span class="list-section-title">帳號列表</span>
+<span class="list-section-count" id="userCount">0 人</span>
+</div>
+<ul class="item-list" id="usersTableBody"></ul>
+</div>
+</div>
+</div>
+
+<!-- Modal: Settings -->
+<div class="modal-overlay" id="settingsModal">
+<div class="modal" style="width:600px">
+<span class="close" onclick="closeModal('settingsModal')">&times;</span>
+<h2>系統設定</h2>
+<div class="form-group">
+<label for="sNotes">備註內容（一行一項）</label>
+<textarea id="sNotes" rows="5" style="min-height:100px"></textarea>
+</div>
+<button class="btn btn-primary" onclick="saveSettings()">儲存設定</button>
+</div>
+</div>
+
+<!-- Modal: Stations -->
+<div class="modal-overlay" id="stationsModal">
+<div class="modal" style="width:600px">
+<div class="modal-header">
+<span class="close" onclick="closeModal('stationsModal')">&times;</span>
+<h2>人員名單管理</h2>
+</div>
+<div class="add-section">
+<div class="add-section-icon">+</div>
+<div style="flex:1">
+<div style="font-weight:600;font-size:14px;margin-bottom:10px">新增人員</div>
+<div class="form-row">
+<div class="form-group"><label>館別</label><input type="text" id="newStationBranch" placeholder="例：10館"></div>
+<div class="form-group"><label>人員姓名</label><input type="text" id="newStationName" placeholder="例：許珈匯"></div>
+</div>
+<button class="btn btn-primary" onclick="addStation()" style="margin-top:4px">新增人員</button>
+</div>
+</div>
+<div class="list-section">
+<div class="list-section-header">
+<span class="list-section-title">人員列表</span>
+<span class="list-section-count" id="stationCount">0 人</span>
+</div>
+<ul class="item-list" id="stationsTableBody"></ul>
+</div>
+<div style="margin-top:12px;font-size:12px;color:#999;text-align:center">修改後請記得點擊「儲存至 GitHub」以同步資料</div>
+</div>
+</div>
+
+<!-- Modal: Scoring Criteria -->
+<div class="modal-overlay" id="criteriaModal">
+<div class="modal" style="width:650px">
+<div class="modal-header">
+<span class="close" onclick="closeModal('criteriaModal')">&times;</span>
+<h2>服務台巡檢評分標準</h2>
+</div>
+<div class="criteria-list">
+<div class="criteria-item">
+<div class="criteria-title"><span class="criteria-num">一</span>出勤狀況 <span class="criteria-score">（10分）</span></div>
+<div class="criteria-desc">是否依規定準時到班、請假代理交接是否完成、是否有長時間離座或未堅守崗位情形。</div>
+</div>
+<div class="criteria-item">
+<div class="criteria-title"><span class="criteria-num">二</span>服裝儀容 <span class="criteria-score">（20分）</span></div>
+<div class="criteria-desc">是否面帶笑容、妝容適中有精神、依規定穿著制服及鞋子、頭髮與整體儀容整潔。</div>
+</div>
+<div class="criteria-item">
+<div class="criteria-title"><span class="criteria-num">三</span>服務態度 <span class="criteria-score">（20分）</span></div>
+<div class="criteria-desc">是否主動協助來賓及同仁、態度親切有禮貌、說話清楚有精神、留意人員進出狀況，無長時間低頭或分心情形。</div>
+</div>
+<div class="criteria-item">
+<div class="criteria-title"><span class="criteria-num">四</span>環境管理 <span class="criteria-score">（20分）</span></div>
+<div class="criteria-desc">櫃檯檯面整潔度、大廳洽談桌椅擺放整齊，個人物品及寄放物品是否擺放整齊，快遞領貨動線不擋路。</div>
+</div>
+<div class="criteria-item">
+<div class="criteria-title"><span class="criteria-num">五</span>應對能力 <span class="criteria-score">（20分）</span></div>
+<div class="criteria-desc">電話接聽及臨櫃應對是否得宜、是否熟悉院內單位及空間指引、遇特殊或語言不通狀況是否具基本應變能力。</div>
+</div>
+<div class="criteria-item" style="border-bottom:none">
+<div class="criteria-title"><span class="criteria-num">六</span>特殊表現 <span class="criteria-score">（10分）</span></div>
+<div class="criteria-desc">主動協助處理突發狀況、獲來賓或主管正向回饋、主動支援館務或即時回報問題等優良表現。</div>
+</div>
+</div>
+<div style="margin-top:16px;text-align:right">
+<button class="btn btn-primary" onclick="closeModal('criteriaModal')">關閉</button>
+</div>
+</div>
+</div>
+
+<!-- Modal: Edit Station -->
+<div class="modal-overlay" id="editStationModal">
+<div class="modal" style="width:420px">
+<div class="modal-header">
+<span class="close" onclick="closeModal('editStationModal')">&times;</span>
+<h2>編輯人員</h2>
+</div>
+<input type="hidden" id="editStationIdx">
+<div class="form-group" style="margin-bottom:12px">
+<label>館別</label>
+<input type="text" id="editStationBranch" placeholder="例：10館">
+</div>
+<div class="form-group" style="margin-bottom:16px">
+<label>人員姓名</label>
+<input type="text" id="editStationName" placeholder="例：許珈匯">
+</div>
+<div class="btn-row">
+<button class="btn btn-primary" onclick="saveEditStation()">儲存</button>
+<button class="btn btn-outline" onclick="closeModal('editStationModal')">取消</button>
+</div>
+</div>
+</div>
+
+<!-- Modal: Change Password -->
+<div class="modal-overlay" id="changePwdModal">
+<div class="modal" style="width:400px">
+<span class="close" onclick="closeModal('changePwdModal')">&times;</span>
+<h2>修改密碼</h2>
+<div class="error" id="pwdError" style="background:#fce4e4;color:#c0392b;padding:10px;border-radius:6px;font-size:13px;margin-bottom:12px;display:none"></div>
+<div class="form-group"><label>目前密碼</label><input type="password" id="oldPwd"></div>
+<div class="form-group"><label>新密碼</label><input type="password" id="newPwd"></div>
+<div class="form-group"><label>確認新密碼</label><input type="password" id="confirmPwd"></div>
+<button class="btn btn-primary" onclick="changePassword()">修改密碼</button>
+</div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== CONFIG =====
+const GIST_ID = 'fe66c5f7735d6ebaebf596c2a92e28be';
+const GIST_API = 'https://api.github.com/gists/' + GIST_ID;
+const TOKEN = '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';
+
+// ===== DATA =====
+let appData = { users: [], inspections: [], stations: [], settings: {} };
+let currentUser = null;
+let modified = false;
+let autoSaveTimer = null;
+
+function autoSave() {
+  if (autoSaveTimer) clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(function() {
+    syncToGist();
+  }, 1500);
+}
+
+const SCORE_ITEMS = [
+  { key: 'attendance', label: '出勤狀況', max: 10 },
+  { key: 'appearance', label: '服裝儀容', max: 20 },
+  { key: 'attitude', label: '服務態度', max: 20 },
+  { key: 'environment', label: '環境管理', max: 20 },
+  { key: 'competence', label: '應對能力', max: 20 },
+  { key: 'special', label: '特殊表現', max: 10 }
+];
+
+const DEFAULT_STATIONS = [
+  {branch:'10館',name:'許珈匯'},{branch:'15館',name:'劉純麗'},{branch:'22館',name:'莊雅竹'},
+  {branch:'51館',name:'黃妤萱'},{branch:'52館',name:'徐玉蟬'},{branch:'53館',name:'鍾淑真'},
+  {branch:'64館',name:'江嘉穗'},{branch:'77館',name:'張旨甯'},{branch:'西大門',name:'楊依帆'},
+  {branch:'東門1',name:'黃尹暄'},{branch:'東門2',name:'黃凡芝'},{branch:'1館',name:'王千蕙'},
+  {branch:'2館',name:'廖珮婷'},{branch:'光復大門',name:'陳佳琬'}
+];
+
+// ===== HASH =====
+async function hashPwd(password) {
+  const enc = new TextEncoder();
+  const buf = await crypto.subtle.digest('SHA-256', enc.encode('opencode_salt_' + password));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// ===== TOAST =====
+function toast(msg, type='info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast ' + type + ' show';
+  setTimeout(()=>el.classList.remove('show'), 3000);
+}
+
+// ===== GIST API =====
+async function gistFetch() {
+  const res = await fetch(GIST_API, { headers: { Authorization: 'Bearer ' + TOKEN } });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return await res.json();
+}
+
+async function gistUpdate(files) {
+  const body = { files: {} };
+  for (const [name, content] of Object.entries(files)) {
+    body.files[name] = { content: JSON.stringify(content, null, 2) };
+  }
+  const res = await fetch(GIST_API, {
+    method: 'PATCH',
+    headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return await res.json();
+}
+
+function getFileContent(gist, filename) {
+  if (gist.files && gist.files[filename]) {
+    try { return JSON.parse(gist.files[filename].content); } catch(e) {}
+  }
+  return null;
+}
+
+// ===== SYNC =====
+async function syncFromGist() {
+  document.getElementById('syncStatus').textContent = '同步中...';
+  try {
+    const gist = await gistFetch();
+    const users = getFileContent(gist, 'users.json') || [];
+    const inspections = getFileContent(gist, 'inspections.json') || [];
+    const stations = getFileContent(gist, 'stations.json') || DEFAULT_STATIONS;
+    const settings = getFileContent(gist, 'settings.json') || { scoring_items: SCORE_ITEMS, notes: ['1. 建議各項目以 1~20 分評分，可依服務品質及現場狀況調整。','2. 同項目60分(含)以下，連續第三次即通知立福加強訓練及督導改善。'] };
+
+    appData.users = users;
+    appData.inspections = inspections;
+    appData.stations = stations;
+    appData.settings = settings;
+    modified = false;
+    document.getElementById('syncStatus').textContent = '✓ 已同步 ' + new Date().toLocaleString();
+    document.getElementById('syncStatus').style.color = '#8f9bb3';
+    renderAll();
+    toast('資料同步成功', 'success');
+  } catch(e) {
+    document.getElementById('syncStatus').textContent = '⚠ 同步失敗（離線模式）';
+    document.getElementById('syncStatus').style.color = '#e74c3c';
+    appData.stations = DEFAULT_STATIONS;
+    appData.settings = { scoring_items: SCORE_ITEMS, notes: ['1. 建議各項目以 1~20 分評分，可依服務品質及現場狀況調整。','2. 同項目60分(含)以下，連續第三次即通知立福加強訓練及督導改善。'] };
+    if (!appData.users || appData.users.length === 0) {
+      var h = await hashPwd('admin123');
+      appData.users = [{ id: 1, username: 'admin', password: h, display_name: '管理者', role: 'admin' }];
+    }
+    if (!appData.inspections) appData.inspections = [];
+    toast('無法連線 GitHub，使用離線資料', 'error');
+  }
+}
+
+async function syncToGist() {
+  document.getElementById('syncStatus').textContent = '同步中...';
+  document.getElementById('syncStatus').style.color = '#ffd700';
+  try {
+    await gistUpdate({
+      'users.json': appData.users,
+      'inspections.json': appData.inspections,
+      'stations.json': appData.stations,
+      'settings.json': appData.settings
+    });
+    modified = false;
+    document.getElementById('syncStatus').textContent = '✓ 已同步 ' + new Date().toLocaleTimeString();
+    document.getElementById('syncStatus').style.color = '#8f9bb3';
+  } catch(e) {
+    document.getElementById('syncStatus').textContent = '⚠ 同步失敗（離線模式）';
+    document.getElementById('syncStatus').style.color = '#e74c3c';
+  }
+}
+
+// ===== AUTH =====
+async function doLogin() {
+  const username = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+  errEl.style.display = 'none';
+
+  if (!username || !password) { errEl.textContent = '請輸入帳號與密碼'; errEl.style.display = 'block'; return; }
+
+  if (appData.users.length === 0) {
+    const hash = await hashPwd('admin123');
+    appData.users = [{ id: 1, username: 'admin', password: hash, display_name: '管理員', role: 'admin' }];
+    await syncToGist();
+  }
+
+  const user = appData.users.find(u => u.username === username);
+  if (!user) { errEl.textContent = '帳號不存在'; errEl.style.display = 'block'; return; }
+
+  const hash = await hashPwd(password);
+  if (user.password !== hash) { errEl.textContent = '密碼錯誤'; errEl.style.display = 'block'; return; }
+
+  currentUser = user;
+  document.getElementById('loginOverlay').style.display = 'none';
+  document.getElementById('mainContent').style.display = 'block';
+  document.getElementById('displayName').textContent = user.display_name;
+  document.getElementById('userInfo').style.display = 'flex';
+
+  if (user.role === 'admin') {
+    document.getElementById('menuUsers').style.display = 'inline';
+    document.getElementById('menuStations').style.display = 'inline';
+    document.getElementById('menuSettings').style.display = 'inline';
+  }
+
+  renderAll();
+  if (appData.inspections.length === 0) toast('歡迎回來！請從 GitHub 同步資料或開始新增巡檢紀錄', 'info');
+}
+
+function doLogout() {
+  currentUser = null;
+  document.getElementById('loginOverlay').style.display = 'flex';
+  document.getElementById('mainContent').style.display = 'none';
+  document.getElementById('userInfo').style.display = 'none';
+}
+
+// ===== RENDER =====
+function renderAll() {
+  renderTable();
+  renderFilters();
+  renderLegend();
+  populateFormSelects();
+}
+
+function renderLegend() {
+  const el = document.getElementById('scoringLegend');
+  const s = appData.settings;
+  const items = (s && s.scoring_items) || SCORE_ITEMS;
+  let html = '<strong>評分標準：</strong>';
+  items.forEach(i => { html += '<span class="item">' + i.label + '（' + i.max + '分）</span>'; });
+  html += '<span class="item"><strong>滿分：100 分</strong></span>';
+  el.innerHTML = html;
+}
+
+function renderFilters() {
+  const sel = document.getElementById('filterName');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">全部人員</option>';
+  appData.stations.forEach(s => {
+    sel.innerHTML += '<option value="' + s.name + '">' + s.name + '</option>';
+  });
+  sel.value = cur;
+}
+
+function renderTable() {
+  const items = (appData.settings && appData.settings.scoring_items) || SCORE_ITEMS;
+  const head = document.getElementById('tableHead');
+  let hHtml = '<tr><th>日期</th><th>巡檢人員</th><th>館別</th><th>人員姓名</th>';
+  items.forEach(i => { hHtml += '<th>' + i.label + '<br><small>' + i.max + '分</small></th>'; });
+  hHtml += '<th>總分</th><th style="min-width:110px">異常/待改善事項/<br>特殊表現</th><th style="min-width:90px">追蹤結果</th><th>操作</th></tr>';
+  head.innerHTML = hHtml;
+
+  const body = document.getElementById('tableBody');
+  const data = appData.inspections;
+  if (data.length === 0) {
+    body.innerHTML = '<tr><td colspan="' + (9 + items.length) + '" class="empty">尚無巡檢紀錄</td></tr>';
+    return;
+  }
+  let bHtml = '';
+  data.forEach(r => {
+    bHtml += '<tr>';
+    bHtml += '<td>' + (r.date||'') + '</td><td>' + (r.inspector||'') + '</td><td><strong>' + (r.branch||'') + '</strong></td><td>' + (r.name||'') + '</td>';
+    items.forEach(i => { bHtml += '<td>' + (r[i.key]!==undefined?r[i.key]:'') + '</td>'; });
+    bHtml += '<td class="total">' + (r.total!==undefined?r.total:'') + '</td>';
+    bHtml += '<td><div class="notes-cell" title="' + escHtml(r.notes||'') + '">' + escHtml(r.notes||'') + '</div></td>';
+    bHtml += '<td><div class="notes-cell" title="' + escHtml(r.follow_up||'') + '">' + escHtml(r.follow_up||'') + '</div></td>';
+    bHtml += '<td class="action-cell">';
+    bHtml += '<button class="btn btn-warning btn-sm" onclick="showEditForm(' + r.id + ')">編輯</button> ';
+    bHtml += '<button class="btn btn-danger btn-sm" onclick="deleteRecord(' + r.id + ')">刪除</button>';
+    bHtml += '</td></tr>';
+  });
+  body.innerHTML = bHtml;
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ===== FILTER =====
+function filterTable() {
+  const branch = document.getElementById('filterBranch').value.toLowerCase();
+  const date = document.getElementById('filterDate').value;
+  const name = document.getElementById('filterName').value;
+  const total = document.getElementById('filterTotal').value;
+  const rows = document.querySelectorAll('#inspectionTable tbody tr');
+  rows.forEach(row => {
+    if (row.querySelector('.empty')) return;
+    const cells = row.querySelectorAll('td');
+    let show = true;
+    if (branch && !cells[2].textContent.toLowerCase().includes(branch)) show = false;
+    if (date && cells[0].textContent !== date) show = false;
+    if (name && cells[3].textContent !== name) show = false;
+    if (total) {
+      const tv = parseInt(cells[6 + ((appData.settings&&appData.settings.scoring_items)||SCORE_ITEMS).length]);
+      if (total==='100' && tv!==100) show=false;
+      else if (total==='90' && tv<90) show=false;
+      else if (total==='80' && tv<80) show=false;
+      else if (total==='60' && tv>60) show=false;
+    }
+    row.style.display = show ? '' : 'none';
+  });
+}
+
+function clearFilters() {
+  document.getElementById('filterBranch').value = '';
+  document.getElementById('filterDate').value = '';
+  document.getElementById('filterName').value = '';
+  document.getElementById('filterTotal').value = '';
+  filterTable();
+}
+
+// ===== FORM =====
+function populateFormSelects() {
+  const branchSel = document.getElementById('fBranch');
+  const nameSel = document.getElementById('fName');
+  const curBranch = branchSel.value;
+  const curName = nameSel.value;
+  branchSel.innerHTML = '<option value="">-- 請選擇館別 --</option>';
+  nameSel.innerHTML = '<option value="">-- 請選擇人員 --</option>';
+  appData.stations.forEach(s => {
+    branchSel.innerHTML += '<option value="' + s.branch + '">' + s.branch + '</option>';
+    nameSel.innerHTML += '<option value="' + s.name + '" data-branch="' + s.branch + '">' + s.name + '</option>';
+  });
+  branchSel.value = curBranch;
+  nameSel.value = curName;
+}
+
+function updateFormName() {
+  const branch = document.getElementById('fBranch').value;
+  const sel = document.getElementById('fName');
+  for (const opt of sel.options) {
+    if (opt.value && opt.getAttribute('data-branch') === branch) {
+      sel.value = opt.value;
+      return;
+    }
+  }
+  sel.value = '';
+}
+
+function calcFormTotal() {
+  const items = (appData.settings && appData.settings.scoring_items) || SCORE_ITEMS;
+  let total = 0;
+  items.forEach(item => {
+    const el = document.querySelector('input[name="' + item.key + '"]');
+    if (el) {
+      let v = parseInt(el.value) || 0;
+      if (v > item.max) v = item.max;
+      if (v < 0) v = 0;
+      el.value = v;
+      total += v;
+    }
+  });
+  document.getElementById('formTotal').textContent = '總分：' + total + ' / 100';
+}
+
+function showAddForm() {
+  document.getElementById('formTitle').textContent = '新增巡檢紀錄';
+  document.getElementById('editId').value = '';
+  document.getElementById('fDate').value = new Date().toISOString().slice(0,10);
+  document.getElementById('fInspector').value = currentUser ? currentUser.display_name : '';
+  document.getElementById('fBranch').value = '';
+  document.getElementById('fName').value = '';
+  document.getElementById('fNotes').value = '';
+  document.getElementById('fFollowUp').value = '';
+
+  const items = (appData.settings && appData.settings.scoring_items) || SCORE_ITEMS;
+  const sg = document.getElementById('scoreGroup');
+  let html = '';
+  items.forEach(item => {
+    html += '<div class="score-item"><label>' + item.label + '</label>';
+    html += '<input type="number" class="score-input" name="' + item.key + '" min="0" max="' + item.max + '" oninput="calcFormTotal()" required>';
+    html += '<div class="max">/ ' + item.max + '</div></div>';
+  });
+  sg.innerHTML = html;
+  calcFormTotal();
+  openModal('formModal');
+}
+
+function showEditForm(id) {
+  const r = appData.inspections.find(i => i.id === id);
+  if (!r) return;
+  document.getElementById('formTitle').textContent = '編輯巡檢紀錄';
+  document.getElementById('editId').value = id;
+  document.getElementById('fDate').value = r.date || '';
+  document.getElementById('fInspector').value = r.inspector || '';
+  document.getElementById('fBranch').value = r.branch || '';
+  document.getElementById('fNotes').value = r.notes || '';
+  document.getElementById('fFollowUp').value = r.follow_up || '';
+
+  const items = (appData.settings && appData.settings.scoring_items) || SCORE_ITEMS;
+  const sg = document.getElementById('scoreGroup');
+  let html = '';
+  items.forEach(item => {
+    html += '<div class="score-item"><label>' + item.label + '</label>';
+    html += '<input type="number" class="score-input" name="' + item.key + '" min="0" max="' + item.max + '" value="' + (r[item.key]||0) + '" oninput="calcFormTotal()" required>';
+    html += '<div class="max">/ ' + item.max + '</div></div>';
+  });
+  sg.innerHTML = html;
+
+  updateFormName();
+  // If name was not updated by branch, set it directly
+  document.getElementById('fName').value = r.name || '';
+  calcFormTotal();
+  openModal('formModal');
+}
+
+function saveInspection() {
+  const items = (appData.settings && appData.settings.scoring_items) || SCORE_ITEMS;
+  const editId = document.getElementById('editId').value;
+  const branch = document.getElementById('fBranch').value;
+  const name = document.getElementById('fName').value;
+  if (!branch || !name) { toast('請選擇館別與人員', 'error'); return; }
+
+  let total = 0;
+  const scores = {};
+  items.forEach(item => {
+    const el = document.querySelector('input[name="' + item.key + '"]');
+    let v = parseInt(el.value) || 0;
+    if (v > item.max) v = item.max;
+    if (v < 0) v = 0;
+    scores[item.key] = v;
+    total += v;
+  });
+
+  const record = {
+    date: document.getElementById('fDate').value,
+    inspector: document.getElementById('fInspector').value,
+    branch, name,
+    ...scores,
+    total,
+    notes: document.getElementById('fNotes').value,
+    follow_up: document.getElementById('fFollowUp').value,
+    updated_at: new Date().toISOString()
+  };
+
+  if (editId) {
+    const idx = appData.inspections.findIndex(i => i.id === parseInt(editId));
+    if (idx !== -1) {
+      record.id = parseInt(editId);
+      record.created_at = appData.inspections[idx].created_at;
+      appData.inspections[idx] = record;
+    }
+  } else {
+    record.id = Date.now();
+    record.created_at = new Date().toISOString();
+    appData.inspections.unshift(record);
+  }
+
+  modified = true;
+  closeModal('formModal');
+  renderAll();
+  toast(editId ? '紀錄已更新' : '紀錄已新增', 'success');
+  autoSave();
+}
+
+function deleteRecord(id) {
+  if (!confirm('確定刪除此筆紀錄？')) return;
+  appData.inspections = appData.inspections.filter(i => i.id !== id);
+  modified = true;
+  renderAll();
+  toast('紀錄已刪除', 'success');
+  autoSave();
+}
+
+// ===== USERS =====
+function showUsers() {
+  if (!currentUser || currentUser.role !== 'admin') return;
+  renderUsersTable();
+  openModal('usersModal');
+}
+
+function renderUsersTable() {
+  const tb = document.getElementById('usersTableBody');
+  document.getElementById('userCount').textContent = appData.users.length + ' 人';
+  let html = '';
+  appData.users.forEach(function(u) {
+    var roleLabel = (u.role==='admin'?'管理員':'一般使用者');
+    var roleClass = (u.role==='admin'?'role-badge-admin':'role-badge-user');
+    html += '<li class="item-row">';
+    html += '<div class="info"><div class="title">' + escHtml(u.username) + ' <span class="role-badge ' + roleClass + '">' + roleLabel + '</span></div><div class="sub">' + escHtml(u.display_name||'') + '</div></div>';
+    html += '<div class="actions">';
+    if (u.id === currentUser.id) {
+      html += '<span style="color:#999;font-size:12px">目前使用者</span>';
+    } else {
+      html += '<button class="btn btn-danger btn-sm" onclick="deleteUser(' + u.id + ')">刪除</button>';
+    }
+    html += '</div></li>';
+  });
+  tb.innerHTML = html;
+}
+
+function deleteUser(uid) {
+  var user = appData.users.find(function(u) { return u.id === uid; });
+  if (!user) return;
+  if (!confirm('確定刪除帳號「' + user.username + '」（' + (user.display_name||'') + '）？\n此操作無法復原。')) return;
+  appData.users = appData.users.filter(function(u) { return u.id !== uid; });
+  renderUsersTable();
+  modified = true;
+  toast('帳號已刪除', 'success');
+  autoSave();
+}
+
+function addUser() {
+  const username = document.getElementById('newUser').value.trim();
+  const password = document.getElementById('newPass').value;
+  const display_name = document.getElementById('newDisplay').value.trim();
+  const role = document.getElementById('newRole').value;
+  if (!username || !password || !display_name) { toast('請填寫所有欄位', 'error'); return; }
+  if (appData.users.find(u=>u.username===username)) { toast('帳號已存在', 'error'); return; }
+
+  hashPwd(password).then(hash => {
+    appData.users.push({
+      id: Date.now(),
+      username, password: hash,
+      display_name, role
+    });
+    document.getElementById('newUser').value = '';
+    document.getElementById('newPass').value = '';
+    document.getElementById('newDisplay').value = '';
+    renderUsersTable();
+    modified = true;
+    toast('帳號已新增', 'success');
+    autoSave();
+  });
+}
+
+// ===== STATIONS =====
+function showStations() {
+  if (!currentUser || currentUser.role !== 'admin') return;
+  renderStationsTable();
+  document.getElementById('newStationBranch').value = '';
+  document.getElementById('newStationName').value = '';
+  openModal('stationsModal');
+}
+
+function renderStationsTable() {
+  const tb = document.getElementById('stationsTableBody');
+  document.getElementById('stationCount').textContent = appData.stations.length + ' 人';
+  let html = '';
+  appData.stations.forEach(function(s, idx) {
+    html += '<li class="item-row">';
+    html += '<div class="info"><div class="title">' + escHtml(s.name) + '</div><div class="sub">' + escHtml(s.branch) + '</div></div>';
+    html += '<div class="actions">';
+    html += '<button class="btn btn-warning btn-sm" onclick="editStation(' + idx + ')">編輯</button>';
+    html += '<button class="btn btn-danger btn-sm" onclick="deleteStation(' + idx + ')">刪除</button>';
+    html += '</div></li>';
+  });
+  tb.innerHTML = html;
+}
+
+function editStation(idx) {
+  var s = appData.stations[idx];
+  if (!s) return;
+  document.getElementById('editStationIdx').value = idx;
+  document.getElementById('editStationBranch').value = s.branch;
+  document.getElementById('editStationName').value = s.name;
+  openModal('editStationModal');
+}
+
+function deleteStation(idx) {
+  var s = appData.stations[idx];
+  if (!s) { toast('找不到該人員，可能資料已變動', 'error'); return; }
+  if (!confirm('確定刪除「' + s.branch + ' - ' + s.name + '」？')) return;
+  appData.stations.splice(idx, 1);
+  modified = true;
+  renderStationsTable();
+  renderAll();
+  toast('已刪除', 'success');
+  autoSave();
+}
+
+function addStation() {
+  const branch = document.getElementById('newStationBranch').value.trim();
+  const name = document.getElementById('newStationName').value.trim();
+  if (!branch || !name) { toast('請填寫館別與姓名', 'error'); return; }
+  if (appData.stations.some(s => s.branch === branch && s.name === name)) {
+    toast('該人員已存在', 'error'); return;
+  }
+  appData.stations.push({ id: Date.now(), branch, name });
+  document.getElementById('newStationBranch').value = '';
+  document.getElementById('newStationName').value = '';
+  modified = true;
+  renderStationsTable();
+  renderAll();
+  toast('人員已新增', 'success');
+  autoSave();
+}
+
+function saveEditStation() {
+  const idx = parseInt(document.getElementById('editStationIdx').value);
+  const branch = document.getElementById('editStationBranch').value.trim();
+  const name = document.getElementById('editStationName').value.trim();
+  if (!branch || !name) { toast('請填寫完整資訊', 'error'); return; }
+  appData.stations[idx].branch = branch;
+  appData.stations[idx].name = name;
+  modified = true;
+  closeModal('editStationModal');
+  renderStationsTable();
+  renderAll();
+  toast('人員已更新', 'success');
+  autoSave();
+}
+
+// ===== SETTINGS =====
+function showScoringCriteria() {
+  openModal('criteriaModal');
+}
+
+function showSettings() {
+  if (!currentUser || currentUser.role !== 'admin') return;
+  const s = appData.settings;
+  const notes = (s && s.notes) ? s.notes.join('\n') : '';
+  document.getElementById('sNotes').value = notes;
+  openModal('settingsModal');
+}
+
+function saveSettings() {
+  const notes = document.getElementById('sNotes').value.split('\n').filter(n => n.trim());
+  if (!appData.settings) appData.settings = {};
+  appData.settings.notes = notes;
+  if (!appData.settings.scoring_items) appData.settings.scoring_items = SCORE_ITEMS;
+  modified = true;
+  closeModal('settingsModal');
+  renderAll();
+  toast('設定已儲存', 'success');
+  autoSave();
+}
+
+// ===== CHANGE PASSWORD =====
+function showChangePwd() {
+  document.getElementById('oldPwd').value = '';
+  document.getElementById('newPwd').value = '';
+  document.getElementById('confirmPwd').value = '';
+  document.getElementById('pwdError').style.display = 'none';
+  openModal('changePwdModal');
+}
+
+async function changePassword() {
+  const old = document.getElementById('oldPwd').value;
+  const np = document.getElementById('newPwd').value;
+  const cp = document.getElementById('confirmPwd').value;
+  const errEl = document.getElementById('pwdError');
+  errEl.style.display = 'none';
+
+  if (!old || !np || !cp) { errEl.textContent = '請填寫所有欄位'; errEl.style.display = 'block'; return; }
+  if (np !== cp) { errEl.textContent = '兩次密碼不一致'; errEl.style.display = 'block'; return; }
+
+  const user = appData.users.find(u => u.id === currentUser.id);
+  const oldHash = await hashPwd(old);
+  if (user.password !== oldHash) { errEl.textContent = '目前密碼錯誤'; errEl.style.display = 'block'; return; }
+
+  user.password = await hashPwd(np);
+  modified = true;
+  closeModal('changePwdModal');
+  toast('密碼已修改', 'success');
+  autoSave();
+}
+
+// ===== EXPORT CSV =====
+function exportCSV() {
+  const items = (appData.settings && appData.settings.scoring_items) || SCORE_ITEMS;
+  const rows = [];
+  const headers = ['日期','巡檢人員','館別','人員姓名'];
+  items.forEach(i => headers.push(i.label+'('+i.max+'分)'));
+  headers.push('總分','異常/待改善事項/特殊表現','追蹤結果');
+  rows.push(headers);
+
+  appData.inspections.forEach(r => {
+    const row = [r.date||'', r.inspector||'', r.branch||'', r.name||''];
+    items.forEach(i => row.push(r[i.key]!==undefined?r[i.key]:''));
+    row.push(r.total!==undefined?r.total:'');
+    row.push((r.notes||'').replace(/,/g,'，'));
+    row.push((r.follow_up||'').replace(/,/g,'，'));
+    rows.push(row);
+  });
+
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const BOM = '\uFEFF';
+  const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = '巡檢紀錄_' + new Date().toISOString().slice(0,10) + '.csv';
+  link.click();
+}
+
+// ===== UTILS =====
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', function(e) {
+    if (e.target === this) this.classList.remove('active');
+  });
+});
+
+// Enter key on login
+document.getElementById('loginPass').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') doLogin();
+});
+document.getElementById('loginUser').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('loginPass').focus();
+});
+
+// ===== INIT =====
+(async function init() {
+  document.getElementById('syncStatus').textContent = '載入中...';
+  document.getElementById('syncStatus').style.color = '#ffd700';
+  await syncFromGist();
+  renderAll();
+})();
+</script>
+</body>
+</html>
