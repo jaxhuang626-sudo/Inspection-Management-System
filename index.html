@@ -90,7 +90,6 @@ tr:hover td{background:#f5f8ff}
 .list-section-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#fafbfc;border-bottom:1px solid #e8e8e8}
 .list-section-title{font-weight:600;font-size:14px;color:#333}
 .list-section-count{font-size:12px;color:#888;background:#eef0f4;padding:2px 10px;border-radius:10px}
-/* Manage table */
 /* Item card list (for stations/users) */
 .item-list{list-style:none;padding:0;margin:0}
 .item-row{display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid #f0f0f0;gap:10px}
@@ -121,6 +120,7 @@ tr:hover td{background:#f5f8ff}
 .toast.show{transform:translateX(0)}
 .toast.success{background:#27ae60}
 .toast.error{background:#e74c3c}
+.toast.warning{background:#f39c12}
 .toast.info{background:#1a73e8}
 /* Responsive */
 @media(max-width:768px){
@@ -149,7 +149,6 @@ tr:hover td{background:#f5f8ff}
 <input type="password" id="loginPass">
 </div>
 <button class="btn btn-primary" style="width:100%;padding:11px;font-size:15px" onclick="doLogin()">登入</button>
-
 </div>
 </div>
 
@@ -286,14 +285,26 @@ tr:hover td{background:#f5f8ff}
 </div>
 </div>
 
-<!-- Modal: Settings -->
+<!-- Modal: Settings (已加入 Gist / Token 設定安全機制) -->
 <div class="modal-overlay" id="settingsModal">
 <div class="modal" style="width:600px">
 <span class="close" onclick="closeModal('settingsModal')">&times;</span>
 <h2>系統設定</h2>
-<div class="form-group">
+<div class="form-group" style="margin-bottom:12px">
+<label for="sGistId">GitHub Gist ID</label>
+<input type="text" id="sGistId" placeholder="請輸入 32 位字元 Gist ID">
+</div>
+<div class="form-group" style="margin-bottom:12px">
+<label for="sGistToken">GitHub 個人存取權杖 (PAT Token)</label>
+<input type="password" id="sGistToken" placeholder="請輸入 github_pat_ 開頭的權杖">
+<small style="color:#e74c3c; display:block; margin-top:4px; line-height: 1.4;">
+⚠️ 請勿直接將此金鑰寫死在 HTML 原始碼中並推送到公開 GitHub 庫！<br>
+GitHub 機構會立即偵測並自動註銷廢除該金鑰。請在此介面輸入，系統會安全儲存在本地瀏覽器。
+</small>
+</div>
+<div class="form-group" style="margin-bottom:16px">
 <label for="sNotes">備註內容（一行一項）</label>
-<textarea id="sNotes" rows="5" style="min-height:100px"></textarea>
+<textarea id="sNotes" rows="4" style="min-height:80px"></textarea>
 </div>
 <button class="btn btn-primary" onclick="saveSettings()">儲存設定</button>
 </div>
@@ -407,10 +418,14 @@ tr:hover td{background:#f5f8ff}
 <div class="toast" id="toast"></div>
 
 <script>
-// ===== CONFIG =====
-const GIST_ID = 'fe66c5f7735d6ebaebf596c2a92e28be';
-const GIST_API = 'https://api.github.com/gists/' + GIST_ID;
-const TOKEN = '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';
+// ===== CONFIG & SAFE CREDENTIAL INITIALIZATION =====
+// 我們使用本地瀏覽器 localStorage 快取憑證，保障推送到 GitHub 時不會發生「金鑰秒刪除」的問題。
+let GIST_ID = localStorage.getItem('GIST_ID') || 'fe66c5f7735d6ebaebf596c2a92e28be';
+let TOKEN = localStorage.getItem('GIST_TOKEN') || '';
+
+function getGistApiUrl() {
+  return 'https://api.github.com/gists/' + GIST_ID;
+}
 
 // ===== DATA =====
 let appData = { users: [], inspections: [], stations: [], settings: {} };
@@ -459,21 +474,35 @@ function toast(msg, type='info') {
 
 // ===== GIST API =====
 async function gistFetch() {
-  const res = await fetch(GIST_API, { headers: { Authorization: 'Bearer ' + TOKEN } });
+  if (!TOKEN) {
+    throw new Error('MISSING_TOKEN');
+  }
+  const res = await fetch(getGistApiUrl(), { 
+    headers: { Authorization: 'Bearer ' + TOKEN } 
+  });
+  if (res.status === 401) throw new Error('UNAUTHORIZED');
+  if (res.status === 404) throw new Error('NOT_FOUND');
   if (!res.ok) throw new Error('HTTP ' + res.status);
   return await res.json();
 }
 
 async function gistUpdate(files) {
+  if (!TOKEN) {
+    throw new Error('MISSING_TOKEN');
+  }
   const body = { files: {} };
   for (const [name, content] of Object.entries(files)) {
     body.files[name] = { content: JSON.stringify(content, null, 2) };
   }
-  const res = await fetch(GIST_API, {
+  const res = await fetch(getGistApiUrl(), {
     method: 'PATCH',
-    headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+    headers: { 
+      Authorization: 'Bearer ' + TOKEN, 
+      'Content-Type': 'application/json' 
+    },
     body: JSON.stringify(body)
   });
+  if (res.status === 401) throw new Error('UNAUTHORIZED');
   if (!res.ok) throw new Error('HTTP ' + res.status);
   return await res.json();
 }
@@ -507,6 +536,8 @@ async function syncFromGist() {
   } catch(e) {
     document.getElementById('syncStatus').textContent = '⚠ 同步失敗（離線模式）';
     document.getElementById('syncStatus').style.color = '#e74c3c';
+    
+    // 預設本機應急資料
     appData.stations = DEFAULT_STATIONS;
     appData.settings = { scoring_items: SCORE_ITEMS, notes: ['1. 建議各項目以 1~20 分評分，可依服務品質及現場狀況調整。','2. 同項目60分(含)以下，連續第三次即通知立福加強訓練及督導改善。'] };
     if (!appData.users || appData.users.length === 0) {
@@ -514,7 +545,18 @@ async function syncFromGist() {
       appData.users = [{ id: 1, username: 'admin', password: h, display_name: '管理者', role: 'admin' }];
     }
     if (!appData.inspections) appData.inspections = [];
-    toast('無法連線 GitHub，使用離線資料', 'error');
+
+    // 針對 GitHub 撤銷與無憑證錯誤提供親切引導
+    if (e.message === 'MISSING_TOKEN') {
+      toast('請先至「系統設定」配置您的 GitHub Token 才能啟用同步', 'warning');
+    } else if (e.message === 'UNAUTHORIZED') {
+      toast('金鑰驗證失敗！您的 Token 可能已被 GitHub 因安全檢測自動銷毀。', 'error');
+    } else if (e.message === 'NOT_FOUND') {
+      toast('找不到指定的 Gist ID，請至設定重新配置', 'error');
+    } else {
+      toast('無法連線 GitHub，目前使用離線快取資料', 'error');
+    }
+    renderAll();
   }
 }
 
@@ -534,6 +576,11 @@ async function syncToGist() {
   } catch(e) {
     document.getElementById('syncStatus').textContent = '⚠ 同步失敗（離線模式）';
     document.getElementById('syncStatus').style.color = '#e74c3c';
+    if (e.message === 'UNAUTHORIZED') {
+      toast('儲存失敗：金鑰已被銷毀，請進入系統設定更新 Token。', 'error');
+    } else {
+      toast('無法連線至雲端 Gist，暫存於本地儲存空間', 'error');
+    }
   }
 }
 
@@ -571,7 +618,7 @@ async function doLogin() {
   }
 
   renderAll();
-  if (appData.inspections.length === 0) toast('歡迎回來！請從 GitHub 同步資料或開始新增巡檢紀錄', 'info');
+  if (appData.inspections.length === 0) toast('歡迎回來！請確認系統設定是否完成配對。', 'info');
 }
 
 function doLogout() {
@@ -766,7 +813,6 @@ function showEditForm(id) {
   sg.innerHTML = html;
 
   updateFormName();
-  // If name was not updated by branch, set it directly
   document.getElementById('fName').value = r.name || '';
   calcFormTotal();
   openModal('formModal');
@@ -978,20 +1024,43 @@ function showSettings() {
   if (!currentUser || currentUser.role !== 'admin') return;
   const s = appData.settings;
   const notes = (s && s.notes) ? s.notes.join('\n') : '';
+  
+  // 載入當前的 Gist ID 與 Token 到介面
+  document.getElementById('sGistId').value = GIST_ID;
+  document.getElementById('sGistToken').value = TOKEN;
   document.getElementById('sNotes').value = notes;
   openModal('settingsModal');
 }
 
 function saveSettings() {
   const notes = document.getElementById('sNotes').value.split('\n').filter(n => n.trim());
+  const newGistId = document.getElementById('sGistId').value.trim();
+  const newToken = document.getElementById('sGistToken').value.trim();
+
+  if (!newGistId) {
+    toast('Gist ID 不能為空', 'error');
+    return;
+  }
+
+  // 更新執行階段的變數
+  GIST_ID = newGistId;
+  TOKEN = newToken;
+
+  // 安全存入本地快取
+  localStorage.setItem('GIST_ID', newGistId);
+  localStorage.setItem('GIST_TOKEN', newToken);
+
   if (!appData.settings) appData.settings = {};
   appData.settings.notes = notes;
   if (!appData.settings.scoring_items) appData.settings.scoring_items = SCORE_ITEMS;
+  
   modified = true;
   closeModal('settingsModal');
   renderAll();
   toast('設定已儲存', 'success');
-  autoSave();
+  
+  // 嘗試使用新權杖重新與雲端同步
+  syncFromGist();
 }
 
 // ===== CHANGE PASSWORD =====
