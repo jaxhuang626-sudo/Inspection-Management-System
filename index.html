@@ -741,26 +741,63 @@ function escHtml(s) {
 }
 
 // ===== FILTER =====
+// 標準化日期字串格式，轉換為統一的 YYYY-MM-DD
+function normalizeDate(str) {
+  if (!str) return '';
+  let normalized = str.trim().replace(/\//g, '-');
+  let parts = normalized.split('-');
+  if (parts.length === 3) {
+    let y = parts[0];
+    let m = parts[1].padStart(2, '0');
+    let d = parts[2].padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  return normalized;
+}
+
 function filterTable() {
-  const branch = document.getElementById('filterBranch').value.toLowerCase();
+  const branch = document.getElementById('filterBranch').value.toLowerCase().trim();
   const date = document.getElementById('filterDate').value;
   const name = document.getElementById('filterName').value;
   const total = document.getElementById('filterTotal').value;
   const rows = document.querySelectorAll('#inspectionTable tbody tr');
+  
+  // 動態取得當前的評分細項長度
+  const scoreItemsCount = ((appData.settings && appData.settings.scoring_items) || SCORE_ITEMS).length;
+  // 計算總分欄位對應的 HTML `td` 陣列索引
+  // 欄位順序：0:日期, 1:巡檢員, 2:館別, 3:姓名, 4~[4+N-1]:各評分項目
+  // 因此「總分」欄位索引為 4 + 評分項目個數 (N)
+  const totalScoreIndex = 4 + scoreItemsCount;
+
   rows.forEach(row => {
     if (row.querySelector('.empty')) return;
     const cells = row.querySelectorAll('td');
+    if (cells.length <= totalScoreIndex) return; // 安全性防呆
+
     let show = true;
+    
+    // 1. 館別搜尋 (模糊比對)
     if (branch && !cells[2].textContent.toLowerCase().includes(branch)) show = false;
-    if (date && cells[0].textContent !== date) show = false;
-    if (name && cells[3].textContent !== name) show = false;
-    if (total) {
-      const tv = parseInt(cells[6 + ((appData.settings&&appData.settings.scoring_items)||SCORE_ITEMS).length]);
-      if (total==='100' && tv!==100) show=false;
-      else if (total==='90' && tv<90) show=false;
-      else if (total==='80' && tv<80) show=false;
-      else if (total==='60' && tv>60) show=false;
+    
+    // 2. 日期篩選 (標準化比對，防止 YYYY/M/D 與 YYYY-MM-DD 格式與補零不匹配問題)
+    if (date) {
+      const cellDateStr = normalizeDate(cells[0].textContent);
+      const filterDateStr = normalizeDate(date);
+      if (cellDateStr !== filterDateStr) show = false;
     }
+    
+    // 3. 人員姓名篩選
+    if (name && cells[3].textContent.trim() !== name.trim()) show = false;
+    
+    // 4. 總分篩選 (修正欄位索引用來指向正確的「總分」欄位而非「追蹤結果」)
+    if (total) {
+      const tv = parseInt(cells[totalScoreIndex].textContent) || 0;
+      if (total === '100' && tv !== 100) show = false;
+      else if (total === '90' && tv < 90) show = false;
+      else if (total === '80' && tv < 80) show = false;
+      else if (total === '60' && tv > 60) show = false;
+    }
+    
     row.style.display = show ? '' : 'none';
   });
 }
