@@ -130,6 +130,15 @@ tr:hover td{background:#f5f8ff}
 #importPreview th{background:#f1f5f9;padding:6px 8px;text-align:center;font-weight:600;color:#334155;border-bottom:1px solid #cbd5e1;white-space:nowrap}
 #importPreview td{padding:6px 8px;border-bottom:1px solid #e2e8f0;color:#475569;text-align:center;vertical-align:middle}
 
+/* Tabs */
+.tabs{display:flex;gap:0;margin-bottom:0}
+.tab{padding:8px 18px;cursor:pointer;font-size:14px;border-radius:8px 8px 0 0;background:#e0e4e8;color:#666;transition:all .15s;font-weight:600;border:1px solid transparent;border-bottom:none;user-select:none}
+.tab.active{background:#fff;color:#1a1a2e;border-color:#ddd}
+.tab:hover:not(.active){background:#d0d4d8}
+.tab .badge{font-size:11px;background:#1a73e8;color:#fff;border-radius:10px;padding:1px 7px;margin-left:4px}
+.view-section{display:none}
+.view-section.active{display:block}
+
 /* Responsive */
 @media(max-width:768px){
 .container{padding:8px}
@@ -177,13 +186,19 @@ tr:hover td{background:#f5f8ff}
 
 <div class="container" id="mainContent" style="display:none">
 
-<div class="toolbar">
+<div class="tabs">
+<span class="tab active" data-view="records" onclick="switchView('records')">📋 巡檢紀錄 <span class="badge" id="recordsBadge">0</span></span>
+<span class="tab" data-view="perf" onclick="switchView('perf')">📊 成績統計</span>
+</div>
+
+<!-- ===== 巡檢紀錄檢視 ===== -->
+<div id="recordsView" class="view-section active">
+<div class="toolbar" style="margin-top:14px">
 <h2>巡檢紀錄</h2>
 <div style="display:flex;gap:8px;flex-wrap:wrap">
 <button class="btn btn-primary" onclick="showAddForm()">+ 新增巡檢</button>
-<!-- 管理員匯入按鈕 -->
 <button class="btn btn-warning btn-sm" id="btnImportToolbar" onclick="showImportModal()" style="display:none">📥 匯入 CSV/XLSX</button>
-<button class="btn btn-success btn-sm" onclick="exportCSV()">匯出 CSV</button>
+<button class="btn btn-success btn-sm" onclick="exportXLSX()">📥 匯出 Excel</button>
 <button class="btn btn-outline btn-sm" onclick="syncFromGist()">從 GitHub 同步</button>
 <button class="btn btn-outline btn-sm" onclick="syncToGist()">儲存至 GitHub</button>
 </div>
@@ -215,6 +230,33 @@ tr:hover td{background:#f5f8ff}
 <thead id="tableHead"></thead>
 <tbody id="tableBody"></tbody>
 </table>
+</div>
+</div>
+
+<!-- ===== 成績統計檢視 ===== -->
+<div id="perfView" class="view-section">
+<div class="filter-bar" style="margin-top:14px;background:#f8f9fa;padding:12px 14px;border-radius:8px">
+<select id="perfYear" style="min-width:110px" onchange="queryPerformance()"></select>
+<select id="perfMonth" style="min-width:120px" onchange="queryPerformance()">
+<option value="">👉 全年（年報）</option>
+<option value="01">1 月</option>
+<option value="02">2 月</option>
+<option value="03">3 月</option>
+<option value="04">4 月</option>
+<option value="05">5 月</option>
+<option value="06">6 月</option>
+<option value="07">7 月</option>
+<option value="08">8 月</option>
+<option value="09">9 月</option>
+<option value="10">10 月</option>
+<option value="11">11 月</option>
+<option value="12">12 月</option>
+</select>
+<select id="perfName" style="min-width:130px" onchange="queryPerformance()"><option value="">全部人員</option></select>
+<button class="btn btn-success btn-sm" onclick="exportPerfXLSX()">📥 匯出 Excel</button>
+</div>
+<div id="perfSummary" style="font-size:14px;color:#555;margin-bottom:10px"></div>
+<div class="table-wrap" id="perfResult" style="max-height:550px;overflow-y:auto"></div>
 </div>
 </div>
 
@@ -683,6 +725,7 @@ function renderAll() {
   renderFilters();
   renderLegend();
   populateFormSelects();
+  document.getElementById('recordsBadge').textContent = appData.inspections.length;
 }
 
 function renderLegend() {
@@ -1381,31 +1424,236 @@ async function changePassword() {
   autoSave();
 }
 
-// ===== EXPORT CSV =====
-function exportCSV() {
-  const items = (appData.settings && appData.settings.scoring_items) || SCORE_ITEMS;
-  const rows = [];
-  const headers = ['日期','巡檢人員','館別','人員姓名'];
-  items.forEach(i => headers.push(i.label+'('+i.max+'分)'));
-  headers.push('總分','異常/待改善事項/特殊表現','追蹤結果');
-  rows.push(headers);
+// ===== EXPORT HTML-based EXCEL (含美化排版) =====
+function buildExcelHtml(headers, rows, totalIdx) {
+  let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><style>'
+    + 'table{border-collapse:collapse;font-family:"Segoe UI",Arial,sans-serif;font-size:11px;width:100%}'
+    + 'th{background:#1a73e8;color:#fff;font-weight:700;border:1px solid #1557b0;padding:8px 6px;text-align:center;vertical-align:middle;white-space:nowrap}'
+    + 'td{border:1px solid #d0d0d0;padding:6px;text-align:center;vertical-align:middle}'
+    + 'tr.alt td{background:#f5f8ff}'
+    + '.total{color:#1a73e8;font-weight:700;font-size:12px}'
+    + '</style></head><body><table>';
+  html += '<tr>' + headers.map(h => '<th>' + escHtml(h) + '</th>').join('') + '</tr>';
+  rows.forEach((row, i) => {
+    html += '<tr' + (i % 2 === 1 ? ' class="alt"' : '') + '>';
+    html += row.map((cell, j) => {
+      var cls = j === totalIdx ? ' class="total"' : '';
+      return '<td' + cls + '>' + escHtml(String(cell)) + '</td>';
+    }).join('');
+    html += '</tr>';
+  });
+  html += '</table></body></html>';
+  return html;
+}
 
-  appData.inspections.forEach(r => {
-    const row = [r.date||'', r.inspector||'', r.branch||'', r.name||''];
-    items.forEach(i => row.push(r[i.key]!==undefined?r[i.key]:''));
+function exportXLSX() {
+  var items = (appData.settings && appData.settings.scoring_items) || SCORE_ITEMS;
+  var headers = ['日期','巡檢人員','館別','人員姓名'];
+  items.forEach(function(i) { headers.push(i.label+'('+i.max+'分)'); });
+  headers.push('總分','異常/待改善事項/特殊表現','追蹤結果');
+
+  var rows = [];
+  appData.inspections.forEach(function(r) {
+    var row = [r.date||'', r.inspector||'', r.branch||'', r.name||''];
+    items.forEach(function(i) { row.push(r[i.key]!==undefined?r[i.key]:''); });
     row.push(r.total!==undefined?r.total:'');
     row.push((r.notes||'').replace(/,/g,'，'));
     row.push((r.follow_up||'').replace(/,/g,'，'));
     rows.push(row);
   });
 
-  const csv = rows.map(r => r.join(',')).join('\n');
-  const BOM = '\uFEFF';
-  const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+  var totalIdx = headers.length - 3;
+  var html = buildExcelHtml(headers, rows, totalIdx);
+  var blob = new Blob(['\uFEFF' + html], { type:'application/vnd.ms-excel;charset=utf-8' });
+  var link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = '巡檢紀錄_' + new Date().toISOString().slice(0,10) + '.xls';
+  link.click();
+  toast('Excel 已匯出（含美化排版、文字置中）', 'success');
+}
+
+// ===== TAB SWITCH =====
+let currentView = 'records';
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('.tabs .tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
+  document.querySelectorAll('.view-section').forEach(s => s.classList.toggle('active', s.id === view + 'View'));
+  if (view === 'perf') initPerfView();
+}
+
+// ===== PERFORMANCE QUERY =====
+function initPerfView() {
+  const yearSel = document.getElementById('perfYear');
+  if (yearSel.options.length > 0) return;
+  const currentYear = new Date().getFullYear();
+  const years = new Set();
+  appData.inspections.forEach(r => {
+    if (r.date) {
+      const y = r.date.split('-')[0];
+      if (y) years.add(y);
+    }
+  });
+  if (years.size === 0) years.add(String(currentYear));
+  const sortedYears = Array.from(years).sort();
+  sortedYears.forEach(y => {
+    yearSel.innerHTML += '<option value="' + y + '">' + y + ' 年</option>';
+  });
+  if (sortedYears.includes(String(currentYear))) {
+    yearSel.value = String(currentYear);
+  } else {
+    yearSel.value = sortedYears[sortedYears.length - 1];
+  }
+
+  const nameSel = document.getElementById('perfName');
+  nameSel.innerHTML = '<option value="">全部人員</option>';
+  const seen = new Set();
+  appData.stations.forEach(s => {
+    if (!seen.has(s.name)) {
+      nameSel.innerHTML += '<option value="' + s.name + '">' + s.name + '</option>';
+      seen.add(s.name);
+    }
+  });
+
+  queryPerformance();
+}
+
+function queryPerformance() {
+  const year = document.getElementById('perfYear').value;
+  const month = document.getElementById('perfMonth').value;
+  const name = document.getElementById('perfName').value;
+  if (!year) return;
+
+  const filtered = appData.inspections.filter(r => {
+    if (!r.date) return false;
+    const parts = r.date.split('-');
+    if (parts.length !== 3) return false;
+    if (parts[0] !== year) return false;
+    if (month && parts[1] !== month) return false;
+    if (name && r.name !== name) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    document.getElementById('perfResult').innerHTML = '<div class="empty">查無符合條件的資料</div>';
+    document.getElementById('perfSummary').textContent = '';
+    return;
+  }
+
+  if (month) {
+    renderMonthlyReport(filtered, year, month, name);
+  } else {
+    renderYearlyReport(filtered, year, name);
+  }
+}
+
+function renderYearlyReport(data, year, nameFilter) {
+  const items = (appData.settings && appData.settings.scoring_items) || SCORE_ITEMS;
+  const groups = {};
+  data.forEach(r => {
+    const key = r.name;
+    if (!groups[key]) groups[key] = { name: key, branch: r.branch, months: {} };
+    const m = r.date.split('-')[1];
+    if (!groups[key].months[m]) groups[key].months[m] = { total: 0, count: 0, scores: {} };
+    groups[key].months[m].total += r.total || 0;
+    groups[key].months[m].count += 1;
+    items.forEach(item => {
+      if (!groups[key].months[m].scores[item.key]) groups[key].months[m].scores[item.key] = 0;
+      groups[key].months[m].scores[item.key] += (r[item.key] || 0);
+    });
+  });
+
+  const monthNames = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+  let html = '<table><thead><tr><th>人員姓名</th><th>館別</th>';
+  monthNames.forEach(m => { html += '<th>' + parseInt(m) + '月<br><small>均分</small></th>'; });
+  html += '<th>年度平均</th><th>總次數</th></tr></thead><tbody>';
+
+  const sortedNames = Object.keys(groups).sort();
+  sortedNames.forEach(n => {
+    const g = groups[n];
+    html += '<tr><td><strong>' + escHtml(n) + '</strong></td><td>' + escHtml(g.branch) + '</td>';
+    let totalSum = 0, totalCount = 0;
+    monthNames.forEach(m => {
+      const md = g.months[m];
+      if (md && md.count > 0) {
+        html += '<td>' + (md.total / md.count).toFixed(1) + '</td>';
+        totalSum += md.total;
+        totalCount += md.count;
+      } else {
+        html += '<td style="color:#ccc">-</td>';
+      }
+    });
+    html += '<td class="total">' + (totalCount > 0 ? (totalSum / totalCount).toFixed(1) : '0') + '</td><td>' + totalCount + '</td></tr>';
+  });
+  html += '</tbody></table>';
+
+  document.getElementById('perfResult').innerHTML = html;
+  document.getElementById('perfSummary').textContent = '📋 ' + year + ' 年度人員成績總表' + (nameFilter ? '（' + nameFilter + '）' : '') + ' ｜ 共 ' + data.length + ' 筆紀錄';
+}
+
+function renderMonthlyReport(data, year, month, nameFilter) {
+  const items = (appData.settings && appData.settings.scoring_items) || SCORE_ITEMS;
+  const groups = {};
+  data.forEach(r => {
+    const key = r.name;
+    if (!groups[key]) groups[key] = { name: key, branch: r.branch, total: 0, count: 0, scores: {} };
+    groups[key].total += r.total || 0;
+    groups[key].count += 1;
+    items.forEach(item => {
+      if (!groups[key].scores[item.key]) groups[key].scores[item.key] = 0;
+      groups[key].scores[item.key] += (r[item.key] || 0);
+    });
+  });
+
+  let html = '<table><thead><tr><th>人員姓名</th><th>館別</th>';
+  items.forEach(i => { html += '<th>' + i.label + '<br><small>均分</small></th>'; });
+  html += '<th>平均總分</th><th>總次數</th></tr></thead><tbody>';
+
+  const sortedNames = Object.keys(groups).sort();
+  sortedNames.forEach(n => {
+    const g = groups[n];
+    html += '<tr><td><strong>' + escHtml(n) + '</strong></td><td>' + escHtml(g.branch) + '</td>';
+    items.forEach(item => {
+      html += '<td>' + (g.count > 0 ? ((g.scores[item.key] || 0) / g.count).toFixed(1) : '0') + '</td>';
+    });
+    html += '<td class="total">' + (g.count > 0 ? (g.total / g.count).toFixed(1) : '0') + '</td><td>' + g.count + '</td></tr>';
+  });
+  html += '</tbody></table>';
+
+  const monthLabel = parseInt(month) + ' 月';
+  document.getElementById('perfResult').innerHTML = html;
+  document.getElementById('perfSummary').textContent = '📋 ' + year + ' 年 ' + monthLabel + ' 人員成績月報表' + (nameFilter ? '（' + nameFilter + '）' : '') + ' ｜ 共 ' + data.length + ' 筆紀錄';
+}
+
+function exportPerfXLSX() {
+  const year = document.getElementById('perfYear').value;
+  const month = document.getElementById('perfMonth').value;
+  if (!year) { toast('請先切換至成績統計頁面', 'error'); return; }
+
+  const table = document.querySelector('#perfResult table');
+  if (!table) { toast('無資料可匯出', 'error'); return; }
+
+  const ths = table.querySelectorAll('thead th');
+  const headers = [];
+  ths.forEach(th => headers.push(th.textContent.trim().replace(/\s+/g,'')));
+
+  const trs = table.querySelectorAll('tbody tr');
+  const rows = [];
+  trs.forEach(tr => {
+    const cells = tr.querySelectorAll('td');
+    const row = [];
+    cells.forEach(td => row.push(td.textContent.trim()));
+    rows.push(row);
+  });
+
+  const totalIdx = headers.length - 2;
+  const html = buildExcelHtml(headers, rows, totalIdx);
+  const blob = new Blob(['\uFEFF' + html], { type:'application/vnd.ms-excel;charset=utf-8' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = '巡檢紀錄_' + new Date().toISOString().slice(0,10) + '.csv';
+  const suffix = month ? '_' + month + '月' : '_年度';
+  link.download = '成績報表_' + year + suffix + '.xls';
   link.click();
+  toast('Excel 已匯出（含美化排版、文字置中）', 'success');
 }
 
 // ===== UTILS =====
